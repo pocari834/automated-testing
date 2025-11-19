@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/playwright/python:v1.40.0
+
+WORKDIR /app
+
+# 安装依赖
+RUN pip install pytest playwright
+
+# 安装浏览器
+RUN playwright install chromium
+RUN playwright install-deps chromium
+
+# 设置工作目录
+WORKDIR /app
+
+CMD ["pytest"]
+
