@@ -1,4 +1,4 @@
-# 测试平台后端 API
+# 自动化测试平台
 
 基于 Python FastAPI 的测试平台后端服务，支持 API 测试、Web UI 测试和性能测试。
 
