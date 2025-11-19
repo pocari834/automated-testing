@@ -19,6 +19,7 @@
           v-for="route in menuRoutes"
           :key="route.path"
           :index="route.path"
+          @click="handleMenuClick(route.path)"
         >
           <el-icon><component :is="route.meta.icon" /></el-icon>
           <template #title>{{ route.meta.title }}</template>
@@ -51,10 +52,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Expand, Fold } from '@element-plus/icons-vue'
 
 const route = useRoute()
+const router = useRouter()
 const isCollapse = ref(false)
 
 const activeMenu = computed(() => route.path)
@@ -66,6 +68,18 @@ const menuRoutes = [
   { path: '/performance-tests', meta: { title: '性能测试', icon: 'DataAnalysis' } },
   { path: '/reports', meta: { title: '测试报告', icon: 'Document' } }
 ]
+
+const handleMenuClick = (path) => {
+  // 确保路径正确，避免路由错误
+  if (path && path.startsWith('/')) {
+    router.push(path).catch(err => {
+      // 忽略重复导航错误
+      if (err.name !== 'NavigationDuplicated') {
+        console.error('路由导航错误:', err)
+      }
+    })
+  }
+}
 
 const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value

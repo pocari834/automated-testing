@@ -52,7 +52,7 @@
         <el-form-item label="项目" prop="project_id">
           <el-select v-model="form.project_id" placeholder="请选择项目" style="width: 100%">
             <el-option
-              v-for="project in projects"
+              v-for="project in (Array.isArray(projects) ? projects : [])"
               :key="project.id"
               :label="project.name"
               :value="project.id"

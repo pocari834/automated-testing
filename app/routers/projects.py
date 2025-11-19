@@ -20,7 +20,7 @@ def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db)
 @router.get("", response_model=List[schemas.Project])
 def get_projects(
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     name: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):

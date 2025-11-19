@@ -75,7 +75,7 @@
         <el-form-item label="项目" prop="project_id">
           <el-select v-model="caseForm.project_id" placeholder="请选择项目" style="width: 100%">
             <el-option
-              v-for="project in projects"
+              v-for="project in (Array.isArray(projects) ? projects : [])"
               :key="project.id"
               :label="project.name"
               :value="project.id"
@@ -145,7 +145,7 @@
         <el-form-item label="项目" prop="project_id">
           <el-select v-model="suiteForm.project_id" placeholder="请选择项目" style="width: 100%">
             <el-option
-              v-for="project in projects"
+              v-for="project in (Array.isArray(projects) ? projects : [])"
               :key="project.id"
               :label="project.name"
               :value="project.id"
@@ -163,7 +163,7 @@
             style="width: 100%"
           >
             <el-option
-              v-for="caseItem in cases"
+              v-for="caseItem in (Array.isArray(cases) ? cases : [])"
               :key="caseItem.id"
               :label="caseItem.name"
               :value="caseItem.id"
