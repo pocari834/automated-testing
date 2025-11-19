@@ -85,7 +85,25 @@ def run_ui_case(case_id: int, db: Session = Depends(get_db)):
     if not case:
         raise HTTPException(status_code=404, detail="UI test case not found")
     
-    # 提交Celery任务
-    task = run_ui_case_task.delay(case_id)
-    return TaskStatus(task_id=task.id, status="PENDING")
+    try:
+        # 提交Celery任务
+        task = run_ui_case_task.delay(case_id)
+        return TaskStatus(task_id=task.id, status="PENDING")
+    except Exception as e:
+        # 如果 Celery worker 未运行，尝试同步执行
+        import traceback
+        error_msg = f"Failed to submit Celery task: {str(e)}\n{traceback.format_exc()}"
+        
+        # 检查是否是连接错误
+        if "Connection" in str(e) or "Broker" in str(e) or "redis" in str(e).lower():
+            raise HTTPException(
+                status_code=503,
+                detail=f"Celery worker is not running. Please start the Celery worker first.\nError: {str(e)}"
+            )
+        
+        # 其他错误
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start test execution: {str(e)}"
+        )
 

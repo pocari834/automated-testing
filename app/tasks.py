@@ -122,16 +122,66 @@ def run_api_suite_task(self: Task, suite_id: int):
 @celery_app.task(bind=True)
 def run_ui_case_task(self: Task, case_id: int):
     """执行UI测试用例的Celery任务"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[UI Test Task] 开始执行用例 ID: {case_id}")
+    
     db: Session = SessionLocal()
+    case = None
     try:
         case = db.query(models.UITestCase).filter(models.UITestCase.id == case_id).first()
         if not case:
             raise ValueError(f"UI test case {case_id} not found")
         
-        # 执行测试
-        result = run_ui_case(case)
+        logger.info(f"[UI Test Task] 用例名称: {case.name}")
         
-        # 创建测试报告
+        # 更新进度：初始化（立即更新，确保任务状态改变）
+        try:
+            logger.info("[UI Test Task] 更新状态: 初始化中...")
+            self.update_state(
+                state="PROGRESS",
+                meta={
+                    "progress": 0,
+                    "current_step": "初始化测试环境",
+                    "total_steps": 0,
+                    "status": "任务已开始，正在初始化..."
+                }
+            )
+            # 强制刷新状态
+            import time as time_module
+            time_module.sleep(0.1)  # 短暂延迟确保状态更新
+            logger.info("[UI Test Task] 状态已更新")
+        except Exception as state_error:
+            # 如果更新状态失败，记录但不中断执行
+            logger.warning(f"Warning: Failed to update task state: {state_error}")
+            import traceback
+            traceback.print_exc()
+        
+        # 执行测试（传入进度回调）
+        def progress_callback(progress, current_step, status):
+            """进度回调函数"""
+            try:
+                logger.info(f"[UI Test Task] 进度更新: {progress}% - {current_step} - {status}")
+                # 使用 update_state 更新状态
+                self.update_state(
+                    state="PROGRESS",
+                    meta={
+                        "progress": progress,
+                        "current_step": current_step,
+                        "status": status
+                    }
+                )
+            except Exception as callback_error:
+                # 如果回调失败，记录但不中断执行
+                logger.warning(f"Warning: Failed to update progress: {callback_error}")
+                import traceback
+                traceback.print_exc()
+        
+        logger.info("[UI Test Task] 开始执行测试用例...")
+        result = run_ui_case(case, progress_callback=progress_callback)
+        logger.info(f"[UI Test Task] 测试执行完成，结果: {'成功' if result.success else '失败'}")
+        
+        # 创建测试报告（无论成功还是失败都创建）
         report = models.TestReport(
             project_id=case.project_id,
             name=f"UI Test: {case.name}",
@@ -149,6 +199,31 @@ def run_ui_case_task(self: Task, case_id: int):
     except Exception as e:
         db.rollback()
         error_msg = f"Error executing UI test case: {str(e)}\n{traceback.format_exc()}"
+        
+        # 即使失败也创建报告（如果case存在）
+        try:
+            if case:
+                report = models.TestReport(
+                    project_id=case.project_id,
+                    name=f"UI Test: {case.name} (Failed)",
+                    type="ui",
+                    task_id=self.request.id,
+                    result_data={
+                        "success": False,
+                        "error_log": error_msg,
+                        "duration": 0.0,
+                        "steps": []
+                    },
+                    pass_rate=0.0,
+                    start_time=datetime.now(),
+                    duration=0.0
+                )
+                db.add(report)
+                db.commit()
+        except Exception as report_error:
+            # 忽略报告创建错误，避免掩盖原始错误
+            pass
+        
         self.update_state(state="FAILURE", meta={"error": error_msg})
         raise
     finally:

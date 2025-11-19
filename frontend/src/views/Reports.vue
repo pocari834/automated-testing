@@ -98,13 +98,81 @@
               <el-descriptions-item label="耗时">
                 {{ currentReport.result_data.duration?.toFixed(2) }}秒
               </el-descriptions-item>
-              <el-descriptions-item label="截图路径" v-if="currentReport.result_data.screenshot_path">
-                {{ currentReport.result_data.screenshot_path }}
-              </el-descriptions-item>
               <el-descriptions-item label="错误日志" v-if="currentReport.result_data.error_log">
                 <pre style="white-space: pre-wrap; word-wrap: break-word; color: #F56C6C;">{{ currentReport.result_data.error_log }}</pre>
               </el-descriptions-item>
             </el-descriptions>
+            
+            <!-- 步骤截图列表 -->
+            <el-divider>测试步骤截图</el-divider>
+            <div v-if="currentReport.result_data.steps && currentReport.result_data.steps.length > 0">
+              <el-timeline>
+                <el-timeline-item
+                  v-for="(step, index) in currentReport.result_data.steps"
+                  :key="index"
+                  :timestamp="formatTimestamp(step.timestamp)"
+                  :type="step.success ? 'success' : 'danger'"
+                  placement="top"
+                >
+                  <el-card>
+                    <div style="display: flex; gap: 20px;">
+                      <div style="flex: 1;">
+                        <h4 style="margin: 0 0 10px 0;">
+                          <el-tag :type="step.success ? 'success' : 'danger'" size="small" style="margin-right: 10px;">
+                            {{ step.success ? '成功' : '失败' }}
+                          </el-tag>
+                          步骤 {{ step.step_index + 1 }}: {{ step.step_name }}
+                        </h4>
+                        <p style="margin: 5px 0; color: #666;">
+                          <strong>操作类型:</strong> {{ step.step_type }}
+                        </p>
+                        <p v-if="step.comment" style="margin: 5px 0; color: #666;">
+                          <strong>注释:</strong> {{ step.comment }}
+                        </p>
+                        <p v-if="step.error" style="margin: 5px 0; color: #F56C6C;">
+                          <strong>错误:</strong> {{ step.error }}
+                        </p>
+                      </div>
+                      <div v-if="step.screenshot_path" style="flex: 0 0 300px;">
+                        <el-image
+                          :src="getScreenshotUrl(step.screenshot_path)"
+                          :preview-src-list="[getScreenshotUrl(step.screenshot_path)]"
+                          fit="contain"
+                          style="width: 100%; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;"
+                          :preview-teleported="true"
+                        >
+                          <template #error>
+                            <div style="display: flex; align-items: center; justify-content: center; height: 100px; color: #999;">
+                              截图加载失败
+                            </div>
+                          </template>
+                        </el-image>
+                      </div>
+                    </div>
+                  </el-card>
+                </el-timeline-item>
+              </el-timeline>
+            </div>
+            <div v-else-if="currentReport.result_data.screenshot_path" style="margin-top: 20px;">
+              <el-alert title="最终截图" type="info" :closable="false">
+                <el-image
+                  :src="getScreenshotUrl(currentReport.result_data.screenshot_path)"
+                  :preview-src-list="[getScreenshotUrl(currentReport.result_data.screenshot_path)]"
+                  fit="contain"
+                  style="width: 100%; max-height: 400px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px;"
+                  :preview-teleported="true"
+                >
+                  <template #error>
+                    <div style="display: flex; align-items: center; justify-content: center; height: 200px; color: #999;">
+                      截图加载失败
+                    </div>
+                  </template>
+                </el-image>
+              </el-alert>
+            </div>
+            <div v-else style="margin-top: 20px;">
+              <el-empty description="暂无截图" :image-size="100" />
+            </div>
           </el-card>
         </div>
 
@@ -216,6 +284,26 @@ const getTypeText = (type) => {
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString('zh-CN')
+}
+
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return '-'
+  return new Date(timestamp * 1000).toLocaleString('zh-CN')
+}
+
+const getScreenshotUrl = (screenshotPath) => {
+  if (!screenshotPath) return ''
+  // 将本地路径转换为URL路径
+  // 例如: ./uploads/screenshots/case_1/step_0_xxx.png -> /api/uploads/screenshots/case_1/step_0_xxx.png
+  let url = screenshotPath.replace(/\\/g, '/')
+  if (url.startsWith('./')) {
+    url = url.substring(2)
+  }
+  if (!url.startsWith('/')) {
+    url = '/' + url
+  }
+  // 通过API代理访问
+  return `/api${url}`
 }
 
 onMounted(() => {

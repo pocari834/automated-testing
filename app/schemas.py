@@ -166,9 +166,12 @@ class TestReport(TestReportBase):
 # ============ Task Schemas ============
 class TaskStatus(BaseModel):
     task_id: str
-    status: str  # PENDING, STARTED, SUCCESS, FAILURE
+    status: str  # PENDING, STARTED, PROGRESS, SUCCESS, FAILURE
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    progress: Optional[int] = None  # 进度百分比 0-100
+    current_step: Optional[str] = None  # 当前步骤
+    status_message: Optional[str] = None  # 状态消息
 
 
 # ============ Test Execution Result Schemas ============
@@ -180,11 +183,24 @@ class APITestResult(BaseModel):
     assertion_errors: List[str] = []
 
 
+class UITestStepResult(BaseModel):
+    """UI测试步骤结果"""
+    step_index: int
+    step_name: str
+    step_type: str
+    success: bool
+    screenshot_path: Optional[str] = None
+    comment: Optional[str] = None
+    error: Optional[str] = None
+    timestamp: float
+
+
 class UITestResult(BaseModel):
     success: bool
     duration: float
-    screenshot_path: Optional[str] = None
+    screenshot_path: Optional[str] = None  # 最终截图（兼容旧版本）
     error_log: Optional[str] = None
+    steps: Optional[List[UITestStepResult]] = None  # 步骤列表，包含每个步骤的截图和注释
 
 
 class PerformanceTestResult(BaseModel):

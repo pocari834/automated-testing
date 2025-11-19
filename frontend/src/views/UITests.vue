@@ -307,13 +307,74 @@ def test_example():
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 执行进度对话框 -->
+    <el-dialog
+      v-model="progressDialogVisible"
+      title="测试执行进度"
+      width="600px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="!isExecuting"
+    >
+      <div v-if="taskStatus">
+        <el-progress
+          :percentage="taskStatus.progress || 0"
+          :status="getProgressStatus()"
+          :stroke-width="20"
+        />
+        <div style="margin-top: 20px;">
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="当前步骤">
+              {{ taskStatus.current_step || '等待开始...' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="状态信息">
+              <span v-if="taskStatus.status === 'PENDING' && !taskStatus.status_message" style="color: #E6A23C;">
+                等待 Celery Worker 处理...（如果长时间无响应，请检查 Worker 是否运行）
+              </span>
+              <span v-else>
+                {{ taskStatus.status_message || taskStatus.status || '未知' }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="执行状态">
+              <el-tag :type="getStatusTag(taskStatus.status)">
+                {{ getStatusText(taskStatus.status) }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="错误信息" v-if="taskStatus.error">
+              <pre style="white-space: pre-wrap; word-wrap: break-word; color: #F56C6C; margin: 0;">{{ taskStatus.error }}</pre>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+      </div>
+      <div v-else style="text-align: center; padding: 20px;">
+        <el-icon class="is-loading" style="font-size: 24px;"><Loading /></el-icon>
+        <p>正在启动测试...</p>
+      </div>
+      <template #footer>
+        <el-button
+          v-if="!isExecuting"
+          type="primary"
+          @click="progressDialogVisible = false"
+        >
+          关闭
+        </el-button>
+        <el-button
+          v-else
+          type="danger"
+          @click="handleCancelExecution"
+        >
+          取消执行
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Document, View } from '@element-plus/icons-vue'
+import { Plus, Document, View, Loading } from '@element-plus/icons-vue'
 import { uiTestApi } from '@/api/uiTests'
 import { projectApi } from '@/api/projects'
 import { taskApi } from '@/api/tasks'
@@ -444,9 +505,20 @@ const handleDelete = async (row) => {
   }
 }
 
+const progressDialogVisible = ref(false)
+const taskStatus = ref(null)
+const isExecuting = ref(false)
+let pollInterval = null
+
 const handleRun = async (row) => {
   try {
     console.log('开始执行 UI 测试用例:', row.id)
+    
+    // 打开进度对话框
+    progressDialogVisible.value = true
+    taskStatus.value = null
+    isExecuting.value = true
+    
     const result = await uiTestApi.runCase(row.id)
     console.log('执行结果:', result)
     if (result && result.task_id) {
@@ -454,37 +526,116 @@ const handleRun = async (row) => {
     pollTaskStatus(result.task_id)
     } else {
       ElMessage.warning('任务提交成功，但未返回任务ID')
+      isExecuting.value = false
+      progressDialogVisible.value = false
     }
   } catch (error) {
     console.error('执行 UI 测试失败:', error)
     const errorMsg = error.response?.data?.detail || error.message || '执行失败'
     ElMessage.error(`执行失败: ${errorMsg}`)
+    isExecuting.value = false
+    progressDialogVisible.value = false
   }
 }
 
+const handleCancelExecution = () => {
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
+  isExecuting.value = false
+  ElMessage.warning('已取消执行监控，但任务可能仍在后台运行')
+}
+
 const pollTaskStatus = async (taskId) => {
-  const maxAttempts = 120 // UI测试可能需要更长时间
+  const maxAttempts = 300 // UI测试可能需要更长时间（5分钟 / 1秒）
   let attempts = 0
-  const interval = setInterval(async () => {
+  
+  pollInterval = setInterval(async () => {
     attempts++
     try {
       const status = await taskApi.getTaskStatus(taskId)
-      if (status.status === 'SUCCESS' || status.status === 'FAILURE') {
-        clearInterval(interval)
-        if (status.status === 'SUCCESS') {
-          ElMessage.success('测试执行完成')
-        } else {
-          ElMessage.error(`测试执行失败: ${status.error || '未知错误'}`)
+      taskStatus.value = status
+      
+      // 如果状态一直是 PENDING，显示提示信息
+      if (status.status === 'PENDING' && attempts > 5) {
+        // 超过5秒还是 PENDING，可能是 Worker 未运行
+        taskStatus.value = {
+          ...status,
+          status_message: status.status_message || '任务等待中，请确保 Celery Worker 正在运行...',
+          progress: 0
         }
       }
+      
+      if (status.status === 'SUCCESS' || status.status === 'FAILURE') {
+        clearInterval(pollInterval)
+        pollInterval = null
+        isExecuting.value = false
+        
+        // 更新进度到100%
+        if (status.status === 'SUCCESS') {
+          taskStatus.value = {
+            ...status,
+            progress: 100,
+            current_step: '测试完成',
+            status_message: '所有步骤执行成功'
+          }
+          ElMessage.success('测试执行完成')
+        } else {
+          taskStatus.value = {
+            ...status,
+            progress: status.progress || 0,
+            current_step: '测试失败',
+            status_message: status.error || '未知错误'
+          }
+          ElMessage.error(`测试执行失败: ${status.error || '未知错误'}`)
+        }
+        
+        // 刷新用例列表
+        loadCases()
+      }
       if (attempts >= maxAttempts) {
-        clearInterval(interval)
+        clearInterval(pollInterval)
+        pollInterval = null
+        isExecuting.value = false
         ElMessage.warning('任务执行超时')
       }
     } catch (error) {
-      clearInterval(interval)
+      console.error('查询任务状态失败:', error)
+      clearInterval(pollInterval)
+      pollInterval = null
+      isExecuting.value = false
     }
-  }, 3000)
+  }, 1000) // 每1秒查询一次（更频繁的更新）
+}
+
+const getProgressStatus = () => {
+  if (!taskStatus.value) return null
+  if (taskStatus.value.status === 'FAILURE') return 'exception'
+  if (taskStatus.value.status === 'SUCCESS') return 'success'
+  return null
+}
+
+const getStatusTag = (status) => {
+  const tags = {
+    'PENDING': 'info',
+    'STARTED': 'warning',
+    'PROGRESS': 'primary',
+    'SUCCESS': 'success',
+    'FAILURE': 'danger'
+  }
+  return tags[status] || 'info'
+}
+
+const getStatusText = (status) => {
+  const texts = {
+    'PENDING': '等待中',
+    'STARTED': '已开始',
+    'PROGRESS': '执行中',
+    'SUCCESS': '成功',
+    'FAILURE': '失败'
+  }
+  return texts[status] || status
 }
 
 // 可视化构建器函数
@@ -539,78 +690,172 @@ const generateScript = () => {
   
   let script = `from playwright.sync_api import sync_playwright
 import time
+import os
+import json
+
+# 截图目录
+SCREENSHOT_DIR = os.getenv("SCREENSHOT_DIR", "./screenshots")
+os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+
+# 步骤结果列表
+step_results = []
+
+def take_screenshot(page, step_index, step_name, comment=""):
+    """截图并记录步骤信息"""
+    # 输出步骤信息，用于进度检测
+    print(f"[STEP {step_index}] {step_name}: {comment}")
+    screenshot_name = f"step_{step_index}_{step_name.replace(' ', '_')}.png"
+    screenshot_path = os.path.join(SCREENSHOT_DIR, screenshot_name)
+    page.screenshot(path=screenshot_path)
+    step_results.append({
+        "step_index": step_index,
+        "step_name": step_name,
+        "step_type": step_name,
+        "success": True,
+        "screenshot_path": screenshot_path,
+        "comment": comment,
+        "timestamp": time.time()
+    })
+    return screenshot_path
 
 def test_ui_case():
+    global step_results
+    step_results = []
+    
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+        # 优化浏览器启动：使用更快的配置
+        browser = p.chromium.launch(
+            headless=True,
+            args=['--disable-blink-features=AutomationControlled', '--no-sandbox']
+        )
+        # 设置更短的超时时间
+        context = browser.new_context(
+            viewport={'width': 1280, 'height': 720},
+            ignore_https_errors=True
+        )
+        page = context.new_page()
         
-        # 访问起始网址
-        page.goto("${visualConfig.value.startUrl}")
-        page.wait_for_load_state('networkidle')
+        # 设置全局超时（30秒）
+        page.set_default_timeout(30000)
+        page.set_default_navigation_timeout(30000)
         
+        try:
+            print("[INFO] 开始执行测试...")
+            # 步骤 0: 访问起始网址（优化：使用 load 而不是 networkidle）
+            print(f"[INFO] 正在访问: ${visualConfig.value.startUrl}")
+            page.goto("${visualConfig.value.startUrl}", wait_until='load', timeout=30000)
+            # 只等待 DOM 加载完成，不等待所有网络请求
+            page.wait_for_load_state('domcontentloaded')
+            take_screenshot(page, 0, "访问起始网址", "已访问: ${visualConfig.value.startUrl}")
+            
 `
   
   visualConfig.value.steps.forEach((step, index) => {
-    script += `        # 步骤 ${index + 1}: ${getStepTypeName(step.type)}\n`
+    const stepIndex = index + 1
+    const stepName = getStepTypeName(step.type)
+    script += `            # 步骤 ${stepIndex}: ${stepName}\n`
     
     switch (step.type) {
       case 'goto':
         const gotoUrl = step.selector || step.value || visualConfig.value.startUrl
         if (gotoUrl) {
-          script += `        page.goto("${gotoUrl}")\n`
-          script += `        page.wait_for_load_state('networkidle')\n`
+          script += `            page.goto("${gotoUrl}", wait_until='load', timeout=30000)\n`
+          script += `            page.wait_for_load_state('domcontentloaded', timeout=5000)\n`
+          script += `            take_screenshot(page, ${stepIndex}, "访问网址", "已访问: ${gotoUrl}")\n`
         }
         break
       case 'click':
         if (step.selector) {
-          script += `        page.click("${step.selector}")\n`
-          script += `        page.wait_for_load_state('networkidle')\n`
+          script += `            page.click("${step.selector}", timeout=10000)\n`
+          script += `            # 等待页面可能的变化（缩短等待时间）\n`
+          script += `            page.wait_for_timeout(500)\n`
+          script += `            take_screenshot(page, ${stepIndex}, "点击元素", "已点击: ${step.selector}")\n`
         }
         break
       case 'fill':
         if (step.selector && step.value) {
-          script += `        page.fill("${step.selector}", "${step.value}")\n`
+          script += `            page.fill("${step.selector}", "${step.value}")\n`
+          script += `            take_screenshot(page, ${stepIndex}, "输入文本", "在 ${step.selector} 中输入: ${step.value}")\n`
         }
         break
       case 'wait':
         if (step.selector) {
-          script += `        page.wait_for_selector("${step.selector}", timeout=10000)\n`
+          script += `            page.wait_for_selector("${step.selector}", timeout=10000, state='visible')\n`
+          script += `            take_screenshot(page, ${stepIndex}, "等待元素", "已等待元素出现: ${step.selector}")\n`
         }
         break
       case 'screenshot':
-        const screenshotName = step.value || `screenshot_${index + 1}`
-        script += `        page.screenshot(path="${screenshotName}.png")\n`
+        const screenshotName = step.value || `screenshot_${stepIndex}`
+        script += `            screenshot_path = take_screenshot(page, ${stepIndex}, "截图", "手动截图: ${screenshotName}")\n`
         break
       case 'sleep':
         const seconds = step.value || 1
-        script += `        time.sleep(${seconds})\n`
+        // 限制 sleep 时间，避免过长等待
+        const sleepTime = Math.min(parseFloat(seconds) || 1, 5)
+        script += `            page.wait_for_timeout(int(${sleepTime * 1000}))\n`
+        script += `            take_screenshot(page, ${stepIndex}, "等待时间", f"等待了 ${sleepTime} 秒")\n`
         break
       case 'assert_title':
         if (step.value) {
-          script += `        assert page.title() == "${step.value}", f"标题不匹配，期望: ${step.value}, 实际: {page.title()}"\n`
+          script += `            actual_title = page.title()\n`
+          script += `            assert actual_title == "${step.value}", f"标题不匹配，期望: ${step.value}, 实际: {actual_title}"\n`
+          script += `            take_screenshot(page, ${stepIndex}, "断言标题", f"标题验证通过: ${step.value}")\n`
         }
         break
       case 'assert_text':
         if (step.selector && step.value) {
-          script += `        text = page.locator("${step.selector}").text_content()\n`
-          script += `        assert "${step.value}" in text, f"文本不匹配，期望包含: ${step.value}, 实际: {text}"\n`
+          script += `            text = page.locator("${step.selector}").text_content()\n`
+          script += `            assert "${step.value}" in text, f"文本不匹配，期望包含: ${step.value}, 实际: {text}"\n`
+          script += `            take_screenshot(page, ${stepIndex}, "断言文本", f"文本验证通过，包含: ${step.value}")\n`
         }
         break
       case 'get_text':
         if (step.selector) {
-          script += `        text = page.locator("${step.selector}").text_content()\n`
-          script += `        print(f"获取的文本: {text}")\n`
+          script += `            text = page.locator("${step.selector}").text_content()\n`
+          script += `            print(f"获取的文本: {text}")\n`
+          script += `            take_screenshot(page, ${stepIndex}, "获取文本", f"获取到的文本: {text}")\n`
         }
         break
     }
     script += '\n'
   })
   
-  script += `        browser.close()
+  script += `            # 最终截图
+            final_screenshot = take_screenshot(page, 999, "测试完成", "所有步骤执行完成")
+            
+            context.close()
+            browser.close()
+            
+            # 返回步骤结果
+            return {
+                "success": True,
+                "steps": step_results,
+                "final_screenshot": final_screenshot
+            }
+        except Exception as e:
+            # 错误时也截图
+            error_screenshot = take_screenshot(page, -1, "执行错误", f"发生错误: {str(e)}")
+            step_results.append({
+                "step_index": -1,
+                "step_name": "执行错误",
+                "step_type": "error",
+                "success": False,
+                "screenshot_path": error_screenshot,
+                "comment": f"错误信息: {str(e)}",
+                "timestamp": time.time(),
+                "error": str(e)
+            })
+            browser.close()
+            return {
+                "success": False,
+                "steps": step_results,
+                "error": str(e),
+                "error_screenshot": error_screenshot
+            }
 
 if __name__ == "__main__":
-    test_ui_case()
+    result = test_ui_case()
+    print(json.dumps(result, indent=2, ensure_ascii=False))
 `
   
   form.value.script = script

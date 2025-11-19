@@ -17,7 +17,9 @@ export const uiTestApi = {
     return api.delete(`/ui_tests/cases/${id}`)
   },
   runCase(id) {
-    return api.post(`/ui_tests/run/${id}`)
+    return api.post(`/ui_tests/run/${id}`, {}, {
+      timeout: 300000 // 5分钟超时
+    })
   }
 }
 
