@@ -3,7 +3,7 @@
 ## 前置要求
 
 1. Python 3.8+
-2. MySQL 5.7+ 或 8.0+
+2. SQL Server 2016+
 3. Redis 5.0+
 
 ## 快速开始
@@ -19,7 +19,7 @@ pip install -r requirements.txt
 创建 `.env` 文件（参考 `.env.example`）：
 
 ```env
-DATABASE_URL=mysql+pymysql://root:password@localhost:3306/test_platform
+DATABASE_URL=mssql+pymssql://sa:123456@localhost:1433/test_platform
 REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/0
@@ -27,8 +27,19 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/0
 
 ### 3. 创建数据库
 
+**使用 SQL Server Management Studio:**
 ```sql
-CREATE DATABASE test_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE test_platform;
+```
+
+**或使用 sqlcmd:**
+```bash
+sqlcmd -S localhost -U sa -P 123456 -Q "CREATE DATABASE test_platform"
+```
+
+**或使用 Python 脚本:**
+```bash
+python init_db.py
 ```
 
 ### 4. 启动服务
@@ -84,11 +95,13 @@ curl "http://localhost:8000/projects"
 
 ## 常见问题
 
-### MySQL 连接失败
+### SQL Server 连接失败
 
-- 检查 MySQL 服务是否启动
-- 确认数据库用户和密码正确
+- 检查 SQL Server 服务是否启动（Windows: 服务管理器，Linux: `systemctl status mssql-server`）
+- 确认数据库用户（sa）和密码（123456）正确
 - 确认数据库已创建
+- 确认 SQL Server 允许 TCP/IP 连接（默认端口 1433）
+- 检查防火墙设置
 
 ### Redis 连接失败
 

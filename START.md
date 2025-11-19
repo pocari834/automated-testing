@@ -17,9 +17,11 @@
    npm --version
    ```
 
-3. **MySQL 5.7+ 或 8.0+**
+3. **SQL Server 2016+**
    ```bash
-   mysql --version
+   # 检查 SQL Server 服务是否运行
+   # Windows: 在服务管理器中查看 "SQL Server (MSSQLSERVER)"
+   # 或使用 sqlcmd 测试连接
    ```
 
 4. **Redis 5.0+**
@@ -69,7 +71,7 @@ pip install -r requirements.txt
 
 ```env
 # 数据库配置
-DATABASE_URL=mysql+pymysql://root:your_password@localhost:3306/test_platform
+DATABASE_URL=mssql+pymssql://sa:123456@localhost:1433/test_platform
 DATABASE_ECHO=False
 
 # Redis 配置
@@ -93,24 +95,34 @@ SECRET_KEY=your-secret-key-here-change-in-production
 
 ### 3. 创建数据库
 
+**使用 SQL Server Management Studio (SSMS):**
+1. 打开 SSMS，连接到 SQL Server 实例
+2. 右键点击"数据库" -> "新建数据库"
+3. 数据库名称：`test_platform`
+4. 点击"确定"
+
+**或使用 sqlcmd 命令行:**
 ```bash
-# 登录 MySQL
-mysql -u root -p
+# Windows
+sqlcmd -S localhost -U sa -P 123456 -Q "CREATE DATABASE test_platform"
 
-# 创建数据库
-CREATE DATABASE test_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-# 退出
-exit;
+# Linux/Mac (如果安装了 sqlcmd)
+sqlcmd -S localhost -U sa -P 123456 -Q "CREATE DATABASE test_platform"
 ```
 
-### 4. 启动 MySQL 和 Redis 服务
+**或使用 Python 脚本:**
+```bash
+python init_db.py
+```
+
+### 4. 启动 SQL Server 和 Redis 服务
 
 **Windows:**
 ```bash
-# MySQL (如果作为服务安装，通常会自动启动)
-# 检查服务状态
-net start MySQL
+# SQL Server (通常作为服务自动启动)
+# 检查服务状态：在服务管理器中查看 "SQL Server (MSSQLSERVER)" 或 "SQL Server (SQLEXPRESS)"
+# 或使用命令：
+sc query MSSQLSERVER
 
 # Redis (如果安装了 Redis for Windows)
 redis-server
@@ -118,10 +130,10 @@ redis-server
 
 **Linux/Mac:**
 ```bash
-# MySQL
-sudo systemctl start mysql
-# 或
-sudo service mysql start
+# SQL Server (如果使用 Docker)
+docker start mssql-server
+# 或使用 systemd (如果作为服务安装)
+sudo systemctl start mssql-server
 
 # Redis
 sudo systemctl start redis
@@ -201,11 +213,11 @@ npm run build
 
 ## 三、完整启动流程（快速参考）
 
-### 终端 1：启动 MySQL 和 Redis
+### 终端 1：启动 SQL Server 和 Redis
 ```bash
-# 确保 MySQL 和 Redis 服务运行
-# Windows: 检查服务状态
-# Linux/Mac: sudo systemctl start mysql redis
+# 确保 SQL Server 和 Redis 服务运行
+# Windows: 在服务管理器中检查 SQL Server 服务状态
+# Linux/Mac: sudo systemctl start mssql-server redis
 ```
 
 ### 终端 2：启动 FastAPI 后端
@@ -264,12 +276,14 @@ http://localhost:8000/docs
 
 ### 问题 1：数据库连接失败
 
-**错误信息**：`OperationalError: (2003, "Can't connect to MySQL server")`
+**错误信息**：`OperationalError` 或 `InterfaceError` (SQL Server 连接错误)
 
 **解决方案**：
-- 检查 MySQL 服务是否启动
-- 检查 `.env` 中的数据库连接信息是否正确
+- 检查 SQL Server 服务是否启动（Windows: 服务管理器，Linux: `systemctl status mssql-server`）
+- 检查 `.env` 中的数据库连接信息是否正确（用户名、密码、端口 1433）
 - 确认数据库已创建
+- 确认 SQL Server 允许 TCP/IP 连接（SQL Server 配置管理器）
+- 检查防火墙是否允许 1433 端口
 
 ### 问题 2：Redis 连接失败
 
@@ -328,7 +342,7 @@ http://localhost:8000/docs
 ## 七、开发工具推荐
 
 - **API 测试**：Postman、Insomnia
-- **数据库管理**：MySQL Workbench、Navicat、DBeaver
+- **数据库管理**：SQL Server Management Studio (SSMS)、Azure Data Studio、DBeaver、Navicat
 - **Redis 管理**：Redis Desktop Manager、Another Redis Desktop Manager
 - **代码编辑器**：VS Code、PyCharm
 

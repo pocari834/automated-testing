@@ -30,7 +30,8 @@ def get_projects(
     if name:
         query = query.filter(models.Project.name.like(f"%{name}%"))
     
-    projects = query.offset(skip).limit(limit).all()
+    # SQL Server 要求使用 OFFSET/LIMIT 时必须要有 ORDER BY
+    projects = query.order_by(models.Project.id.desc()).offset(skip).limit(limit).all()
     return projects
 
 

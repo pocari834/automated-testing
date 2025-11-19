@@ -5,7 +5,7 @@
 ## 技术栈
 
 - **后端框架**: FastAPI
-- **数据库**: MySQL + SQLAlchemy
+- **数据库**: SQL Server + SQLAlchemy
 - **消息队列**: Redis + Celery
 - **测试工具**: Pytest + Requests + Playwright + JMeter
 
@@ -54,7 +54,7 @@ pip install -r requirements.txt
 
 ```bash
 # 数据库配置
-DATABASE_URL=mysql+pymysql://user:password@localhost:3306/test_platform
+DATABASE_URL=mssql+pymssql://sa:123456@localhost:1433/test_platform
 
 # Redis 配置
 REDIS_URL=redis://localhost:6379/0
@@ -69,9 +69,11 @@ JMETER_RESULTS_DIR=./jmeter_results
 ### 3. 初始化数据库
 
 ```bash
-# 创建数据库
-mysql -u root -p
-CREATE DATABASE test_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+# 创建数据库（使用 SQL Server Management Studio 或 sqlcmd）
+# 在 SQL Server Management Studio 中执行：
+CREATE DATABASE test_platform;
+# 或使用 sqlcmd：
+# sqlcmd -S localhost -U sa -P 123456 -Q "CREATE DATABASE test_platform"
 
 # 数据库表会在首次启动时自动创建
 ```
@@ -251,7 +253,7 @@ export JMETER_HOME=/path/to/jmeter
 
 ## 注意事项
 
-1. **数据库连接**: 确保 MySQL 服务已启动，数据库已创建
+1. **数据库连接**: 确保 SQL Server 服务已启动，数据库已创建
 2. **Redis 服务**: Celery 需要 Redis 作为消息队列，确保 Redis 已启动
 3. **文件权限**: 确保 `uploads` 和 `jmeter_results` 目录有写入权限
 4. **UI 测试**: 本地执行需要安装 Playwright 和浏览器，或使用 Docker 容器

@@ -11,7 +11,7 @@
         </div>
       </template>
 
-      <el-table :data="tests" v-loading="loading" stripe>
+      <el-table :data="Array.isArray(tests) ? tests : []" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" label="测试名称" />
         <el-table-column prop="status" label="状态" width="120">
@@ -137,9 +137,10 @@ const rules = {
 const loadProjects = async () => {
   try {
     const data = await projectApi.getProjects({ limit: 1000 })
-    projects.value = data
+    projects.value = Array.isArray(data) ? data : []
   } catch (error) {
     console.error('加载项目失败', error)
+    projects.value = []
   }
 }
 
@@ -147,9 +148,10 @@ const loadTests = async () => {
   loading.value = true
   try {
     const data = await performanceTestApi.getTests()
-    tests.value = data
+    tests.value = Array.isArray(data) ? data : []
   } catch (error) {
     ElMessage.error('加载测试列表失败')
+    tests.value = []
   } finally {
     loading.value = false
   }

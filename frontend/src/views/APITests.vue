@@ -13,7 +13,7 @@
             </div>
           </template>
 
-          <el-table :data="cases" v-loading="casesLoading" stripe>
+          <el-table :data="Array.isArray(cases) ? cases : []" v-loading="casesLoading" stripe>
             <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="name" label="用例名称" />
             <el-table-column prop="method" label="方法" width="100">
@@ -45,7 +45,7 @@
             </div>
           </template>
 
-          <el-table :data="suites" v-loading="suitesLoading" stripe>
+          <el-table :data="Array.isArray(suites) ? suites : []" v-loading="suitesLoading" stripe>
             <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="name" label="套件名称" />
             <el-table-column prop="case_ids" label="用例数量" width="120">
@@ -234,9 +234,11 @@ const suiteRules = {
 const loadProjects = async () => {
   try {
     const data = await projectApi.getProjects({ limit: 1000 })
-    projects.value = data
+    // 确保 data 是数组
+    projects.value = Array.isArray(data) ? data : []
   } catch (error) {
     console.error('加载项目失败', error)
+    projects.value = []
   }
 }
 
@@ -244,9 +246,11 @@ const loadCases = async () => {
   casesLoading.value = true
   try {
     const data = await apiTestApi.getCases()
-    cases.value = data
+    // 确保 data 是数组
+    cases.value = Array.isArray(data) ? data : []
   } catch (error) {
     ElMessage.error('加载用例失败')
+    cases.value = []
   } finally {
     casesLoading.value = false
   }
@@ -256,9 +260,11 @@ const loadSuites = async () => {
   suitesLoading.value = true
   try {
     const data = await apiTestApi.getSuites()
-    suites.value = data
+    // 确保 data 是数组
+    suites.value = Array.isArray(data) ? data : []
   } catch (error) {
     ElMessage.error('加载套件失败')
+    suites.value = []
   } finally {
     suitesLoading.value = false
   }

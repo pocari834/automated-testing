@@ -4,7 +4,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "mysql+pymysql://user:password@localhost:3306/test_platform"
+    DATABASE_URL: str = "mssql+pyodbc://(local)/test_platform?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
     DATABASE_ECHO: bool = False
     
     # Redis

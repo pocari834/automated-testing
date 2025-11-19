@@ -21,7 +21,7 @@
         </div>
       </template>
 
-      <el-table :data="reports" v-loading="loading" stripe>
+      <el-table :data="Array.isArray(reports) ? reports : []" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" label="报告名称" />
         <el-table-column prop="type" label="类型" width="120">
@@ -176,9 +176,10 @@ const loadReports = async () => {
       params.report_type = filterType.value
     }
     const data = await reportApi.getReports(params)
-    reports.value = data
+    reports.value = Array.isArray(data) ? data : []
   } catch (error) {
     console.error('加载报告失败', error)
+    reports.value = []
   } finally {
     loading.value = false
   }
@@ -187,7 +188,7 @@ const loadReports = async () => {
 const handleView = async (row) => {
   try {
     const data = await reportApi.getReport(row.id)
-    currentReport.value = data
+    currentReport.value = data || {}
     detailDialogVisible.value = true
   } catch (error) {
     console.error('加载报告详情失败', error)

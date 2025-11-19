@@ -10,7 +10,7 @@ class Project(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
     is_deleted = Column(Boolean, default=False, nullable=False)
     
     # Relationships
@@ -33,8 +33,8 @@ class APITestCase(Base):
     params = Column(JSON, nullable=True)
     body = Column(JSON, nullable=True)
     assertions = Column(JSON, nullable=True)  # 断言规则
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
     
     # Relationships
     project = relationship("Project", back_populates="api_cases")
@@ -47,8 +47,8 @@ class APITestSuite(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     name = Column(String(255), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
     
     # Relationships
     project = relationship("Project", back_populates="api_suites")
@@ -76,8 +76,8 @@ class UITestCase(Base):
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     name = Column(String(255), nullable=False)
     script = Column(Text, nullable=False)  # Playwright Python脚本代码
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
     
     # Relationships
     project = relationship("Project", back_populates="ui_cases")
@@ -91,8 +91,8 @@ class PerformanceTest(Base):
     name = Column(String(255), nullable=False)
     jmx_file_path = Column(String(500), nullable=True)
     status = Column(String(20), default="ready")  # ready, running, completed, failed
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
     
     # Relationships
     project = relationship("Project", back_populates="performance_tests")
@@ -108,9 +108,9 @@ class TestReport(Base):
     task_id = Column(String(255), nullable=True)  # Celery任务ID
     result_data = Column(JSON, nullable=True)  # 详细的测试结果
     pass_rate = Column(Float, nullable=True)  # 通过率
-    start_time = Column(DateTime(timezone=True), nullable=True)
+    start_time = Column(DateTime, nullable=True)
     duration = Column(Float, nullable=True)  # 耗时（秒）
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
     
     # Relationships
     project = relationship("Project", back_populates="reports")

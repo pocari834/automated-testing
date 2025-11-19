@@ -31,7 +31,7 @@
       <!-- 项目列表 -->
       <el-table
         v-loading="loading"
-        :data="projects"
+        :data="Array.isArray(projects) ? projects : []"
         style="width: 100%"
         stripe
       >
@@ -134,11 +134,19 @@ const loadProjects = async () => {
       params.name = searchName.value
     }
     const data = await projectApi.getProjects(params)
-    projects.value = data
-    // 注意：后端返回的是数组，这里假设有总数，实际可能需要后端返回总数
-    total.value = data.length
+    // 确保 data 是数组
+    if (Array.isArray(data)) {
+      projects.value = data
+      total.value = data.length
+    } else {
+      projects.value = []
+      total.value = 0
+      console.error('返回的数据不是数组:', data)
+    }
   } catch (error) {
     ElMessage.error('加载项目列表失败')
+    projects.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }

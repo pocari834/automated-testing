@@ -16,9 +16,9 @@ py --version
 
 **注意**：Windows 上通常使用 `py` 命令而不是 `python` 命令。
 
-### 2. 检查 MySQL 和 Redis
+### 2. 检查 SQL Server 和 Redis
 
-确保 MySQL 和 Redis 服务已启动。
+确保 SQL Server 和 Redis 服务已启动。
 
 ## 快速启动步骤
 
@@ -58,7 +58,7 @@ pip install -r requirements.txt
 在项目根目录创建 `.env` 文件，内容：
 
 ```env
-DATABASE_URL=mysql+pymysql://root:你的密码@localhost:3306/test_platform
+DATABASE_URL=mssql+pymssql://sa:123456@localhost:1433/test_platform
 DATABASE_ECHO=False
 REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=redis://localhost:6379/0
@@ -70,14 +70,25 @@ DEBUG=True
 SECRET_KEY=your-secret-key-here
 ```
 
-**重要**：将 `你的密码` 替换为你的 MySQL root 密码。
+**重要**：将 `123456` 替换为你的 SQL Server sa 密码（如果不同）。
 
 ### 步骤 5：创建数据库
 
-打开 MySQL 命令行或 MySQL Workbench：
+**方式一：使用 SQL Server Management Studio (SSMS)**
+1. 打开 SSMS，连接到 SQL Server 实例（localhost）
+2. 右键点击"数据库" -> "新建数据库"
+3. 数据库名称：`test_platform`
+4. 点击"确定"
 
-```sql
-CREATE DATABASE test_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+**方式二：使用 sqlcmd 命令行**
+```powershell
+sqlcmd -S localhost -U sa -P 123456 -Q "CREATE DATABASE test_platform"
+```
+
+**方式三：使用 Python 脚本（推荐）**
+```powershell
+# 先确保数据库已创建，然后运行：
+py init_db.py
 ```
 
 ### 步骤 6：启动服务（需要 3 个 PowerShell 窗口）
@@ -143,12 +154,14 @@ pip install eventlet
 celery -A app.celery_app worker --loglevel=info --pool=eventlet
 ```
 
-### 问题 4：MySQL 连接失败
+### 问题 4：SQL Server 连接失败
 
 **检查项**：
-1. MySQL 服务是否启动（服务管理器或 `net start MySQL`）
-2. `.env` 文件中的密码是否正确
+1. SQL Server 服务是否启动（服务管理器查看 "SQL Server (MSSQLSERVER)" 或使用 `sc query MSSQLSERVER`）
+2. `.env` 文件中的用户名、密码、端口是否正确（默认端口 1433）
 3. 数据库是否已创建
+4. SQL Server 是否允许 TCP/IP 连接（SQL Server 配置管理器 -> SQL Server 网络配置）
+5. 防火墙是否允许 1433 端口
 
 ### 问题 5：Redis 连接失败
 
@@ -189,7 +202,7 @@ npm run dev
 ## 提示
 
 - 每次打开新的 PowerShell 窗口时，需要重新激活虚拟环境
-- 确保 MySQL 和 Redis 服务在后台运行
+- 确保 SQL Server 和 Redis 服务在后台运行
 - 如果修改了代码，FastAPI 会自动重载（开发模式）
 - Celery Worker 需要保持运行才能执行异步任务
 
